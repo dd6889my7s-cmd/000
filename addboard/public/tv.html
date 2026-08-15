@@ -6,12 +6,11 @@
 <title>addboard</title>
 <style>
   :root {
-    --bg: #10141d;
-    --panel: #1a2130;
-    --line: #2a3346;
-    --text: #e8ecf4;
-    --dim: #8b95a8;
-    --accent: #ffd166;
+    --bg: #050505;
+    --panel: #121212;
+    --line: #272727;
+    --text: #e6e6e6;
+    --dim: #8a8a8a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -23,7 +22,7 @@
     display: flex;
     flex-direction: column;
     padding: 2.2vh 2vw;
-    gap: 1.8vh;
+    gap: 1.6vh;
     cursor: none;
   }
   header {
@@ -32,7 +31,7 @@
     justify-content: space-between;
   }
   #date { font-size: 4.2vh; font-weight: 700; }
-  #date .youbi { color: var(--accent); margin-left: .4em; }
+  #date .youbi { color: var(--dim); margin-left: .4em; }
   #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); }
 
   #note-wrap {
@@ -43,10 +42,20 @@
     display: none;
   }
   #note-wrap.show { display: block; }
-  #note-label { font-size: 2vh; color: var(--accent); font-weight: 700; margin-bottom: .6vh; }
-  #note { font-size: 3.2vh; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 22vh; overflow: hidden; }
+  #note { font-size: 3.2vh; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 20vh; overflow: hidden; }
 
-  #cols { display: flex; gap: 1.6vw; flex: 1; min-height: 0; }
+  /* 二人共通の予定(左右をまたいで中央に表示) */
+  #shared {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 1.4vh;
+    padding: 1.2vh 1.6vw;
+    display: none;
+  }
+  #shared.show { display: block; }
+  #shared ul { display: flex; flex-direction: column; align-items: center; }
+
+  #cols { display: flex; gap: 1.4vw; flex: 1; min-height: 0; }
   .member {
     flex: 1;
     background: var(--panel);
@@ -55,21 +64,20 @@
     padding: 1.6vh 1.4vw;
     display: flex;
     flex-direction: column;
-    gap: 1vh;
+    gap: 1.2vh;
     overflow: hidden;
-    border-top: .7vh solid var(--mc, #5b8def);
   }
-  .member h2 { font-size: 3vh; }
-  .member h2::before { content: "●"; color: var(--mc); margin-right: .4em; font-size: .8em; }
-  .sec-label { font-size: 1.9vh; color: var(--dim); font-weight: 700; letter-spacing: .1em; margin-top: .6vh; }
+  .member h2 { font-size: 3vh; color: var(--mc); }
+  .member .todos { border-top: 1px solid var(--line); padding-top: 1.2vh; }
   ul { list-style: none; overflow: hidden; }
-  li { font-size: 2.9vh; line-height: 1.55; display: flex; align-items: baseline; gap: .5em; }
-  li .time { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.2em; }
-  li .time.allday { color: var(--dim); font-size: .75em; }
-  li.todo::before { content: "☐"; color: var(--dim); }
-  li.todo.done::before { content: "☑"; color: #6fce8f; }
-  li.todo.done { color: var(--dim); text-decoration: line-through; }
-  .empty { color: var(--dim); font-size: 2.4vh; }
+  li { font-size: 2.9vh; line-height: 1.55; display: flex; align-items: baseline; gap: .5em; color: var(--mc); }
+  li .time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.2em; }
+  li .time.allday { opacity: .55; font-size: .75em; }
+  li.todo::before { content: "☐"; opacity: .7; }
+  li.todo.done::before { content: "☑"; }
+  li.todo.done { opacity: .45; text-decoration: line-through; }
+  li.empty { color: var(--dim); font-size: 2.4vh; }
+  li.empty::before { content: none; }
 
   #week {
     display: grid;
@@ -84,14 +92,11 @@
     padding: 1vh .6vw;
     overflow: hidden;
   }
-  .day.today { border-color: var(--accent); }
+  .day.today { border-color: var(--text); }
   .day .dhead { font-size: 1.9vh; font-weight: 700; color: var(--dim); margin-bottom: .5vh; }
-  .day.today .dhead { color: var(--accent); }
-  .day .dhead .sat { color: #7ab5f5; }
-  .day .dhead .sun { color: #f08a9b; }
+  .day.today .dhead { color: var(--text); }
   .day li { font-size: 1.9vh; line-height: 1.5; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .day li::before { content: "●"; color: var(--mc); font-size: .7em; margin-right: .3em; }
-  #offline { position: fixed; top: 1vh; right: 1vw; color: #f08a9b; font-size: 2vh; display: none; }
+  #offline { position: fixed; top: 1vh; right: 1vw; color: var(--dim); font-size: 2vh; display: none; }
 </style>
 </head>
 <body>
@@ -100,9 +105,9 @@
     <div id="clock"></div>
   </header>
   <div id="note-wrap">
-    <div id="note-label">今日の朝会メモ</div>
     <div id="note"></div>
   </div>
+  <div id="shared"></div>
   <div id="cols"></div>
   <div id="week"></div>
   <div id="offline">接続が切れています…再接続中</div>
@@ -131,9 +136,19 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
+function evLi(e) {
+  return `<li>${e.time
+    ? `<span class="time">${esc(e.time)}</span>`
+    : '<span class="time allday">終日</span>'}<span>${esc(e.title)}</span></li>`;
+}
+function tdLi(t) {
+  return `<li class="todo${t.done ? ' done' : ''}">${esc(t.text)}</li>`;
+}
+
 function render(b) {
   const today = dstr(new Date());
   lastRenderedDay = today;
+  const colorOf = id => (b.members.find(m => m.id === id) || {}).color || '#e6e6e6';
 
   // 朝会メモ
   const noteWrap = document.getElementById('note-wrap');
@@ -144,35 +159,38 @@ function render(b) {
     noteWrap.classList.remove('show');
   }
 
-  // 各メンバーの「今日」
+  // 二人共通(中央・水色)
+  const shared = document.getElementById('shared');
+  const shEvs = b.events.filter(e => e.memberId === 'both' && e.date === today);
+  const shTds = b.todos.filter(t => t.memberId === 'both' && (!t.date || t.date <= today));
+  if (shEvs.length || shTds.length) {
+    shared.classList.add('show');
+    shared.innerHTML = `<ul style="--mc:${esc(colorOf('both'))}">${shEvs.map(evLi).join('')}${shTds.map(tdLi).join('')}</ul>`;
+  } else {
+    shared.classList.remove('show');
+  }
+
+  // 各自の「今日」(左右の列・本人の色)
   const cols = document.getElementById('cols');
-  cols.innerHTML = b.members.map(mem => {
+  cols.innerHTML = b.members.filter(m => m.id !== 'both').map(mem => {
     const evs = b.events.filter(e => e.memberId === mem.id && e.date === today);
     const todos = b.todos.filter(t => t.memberId === mem.id && (!t.date || t.date <= today));
-    const evHtml = evs.length
-      ? evs.map(e => `<li>${e.time ? `<span class="time">${esc(e.time)}</span>` : '<span class="time allday">終日</span>'}<span>${esc(e.title)}</span></li>`).join('')
-      : '<li class="empty">予定なし</li>';
-    const tdHtml = todos.length
-      ? todos.map(t => `<li class="todo${t.done ? ' done' : ''}">${esc(t.text)}</li>`).join('')
-      : '<li class="empty">なし</li>';
+    const evHtml = evs.length ? evs.map(evLi).join('') : '<li class="empty">予定なし</li>';
+    const tdHtml = todos.length ? `<ul class="todos">${todos.map(tdLi).join('')}</ul>` : '';
     return `<div class="member" style="--mc:${esc(mem.color)}">
       <h2>${esc(mem.name)}</h2>
-      <div class="sec-label">今日の予定</div><ul>${evHtml}</ul>
-      <div class="sec-label">やること</div><ul>${tdHtml}</ul>
+      <ul>${evHtml}</ul>${tdHtml}
     </div>`;
   }).join('');
 
-  // 今後1週間
+  // 今後1週間(文字色で誰の予定か区別)
   const week = document.getElementById('week');
-  const colorOf = id => (b.members.find(mm => mm.id === id) || {}).color || '#888';
   week.innerHTML = [...Array(7)].map((_, i) => {
     const d = new Date(Date.now() + i * 86400000);
     const ds = dstr(d);
-    const w = d.getDay();
-    const wcls = w === 6 ? 'sat' : w === 0 ? 'sun' : '';
     const evs = b.events.filter(e => e.date === ds);
     return `<div class="day${i === 0 ? ' today' : ''}">
-      <div class="dhead">${i === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}`}<span class="${wcls}">(${YOUBI[w]})</span></div>
+      <div class="dhead">${i === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}`}(${YOUBI[d.getDay()]})</div>
       <ul>${evs.map(e => `<li style="--mc:${esc(colorOf(e.memberId))}">${e.time ? esc(e.time) + ' ' : ''}${esc(e.title)}</li>`).join('')}</ul>
     </div>`;
   }).join('');

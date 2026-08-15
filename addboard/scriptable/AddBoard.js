@@ -14,7 +14,7 @@
 //       Tailscale などの VPN を入れると SERVER のアドレスのまま届きます。
 
 const SERVER = "http://192.168.1.20:8720"; // ← 自宅サーバーのアドレスに変更
-const MY_NAME = "メンバー1";               // ← 自分のメンバー名に変更
+const MY_NAME = "ASM";                     // ← 自分のメンバー名に変更(ASM / TKS)
 
 function todayStr() {
   const d = new Date();
@@ -35,32 +35,34 @@ const widget = new ListWidget();
 const isLock = config.widgetFamily && config.widgetFamily.startsWith("accessory");
 
 if (!isLock) {
-  widget.backgroundColor = new Color("#10141d");
+  widget.backgroundColor = new Color("#050505");
 }
 
 if (!board) {
   const t = widget.addText("addboard に接続できません(自宅Wi-Fi外?)");
   t.font = Font.systemFont(isLock ? 12 : 14);
-  t.textColor = isLock ? Color.white() : new Color("#8b95a8");
+  t.textColor = isLock ? Color.white() : new Color("#8a8a8a");
 } else {
   const me = board.members.find(m => m.name === MY_NAME) || board.members[0];
+  const shared = board.members.find(m => m.id === "both") || { color: "#6fd3e1" };
   const today = todayStr();
+  // 自分の予定 + 二人共通の予定を表示(文字色で区別: 自分=本人色 / 共通=水色)
   const events = board.events
-    .filter(e => e.memberId === me.id && e.date === today)
+    .filter(e => (e.memberId === me.id || e.memberId === "both") && e.date === today)
     .slice(0, isLock ? 2 : 5);
   const todos = board.todos
-    .filter(t => t.memberId === me.id && !t.done && (!t.date || t.date <= today))
+    .filter(t => (t.memberId === me.id || t.memberId === "both") && !t.done && (!t.date || t.date <= today))
     .slice(0, isLock ? 1 : 4);
 
   const lines = [];
-  for (const e of events) lines.push(`${e.time ? e.time + " " : ""}${e.title}`);
-  for (const t of todos) lines.push(`☐ ${t.text}`);
-  if (!lines.length) lines.push("今日は予定なし 🎉");
+  for (const e of events) lines.push({ text: `${e.time ? e.time + " " : ""}${e.title}`, shared: e.memberId === "both" });
+  for (const t of todos) lines.push({ text: `☐ ${t.text}`, shared: t.memberId === "both" });
+  if (!lines.length) lines.push({ text: "今日は予定なし 🎉", shared: false });
 
   if (isLock) {
-    // ロック画面 (accessoryRectangular): 3行程度が限界
+    // ロック画面 (accessoryRectangular): 3行程度が限界。色は付かずモノトーン表示
     for (const line of lines.slice(0, 3)) {
-      const t = widget.addText(line);
+      const t = widget.addText(line.text);
       t.font = Font.mediumSystemFont(12);
       t.lineLimit = 1;
     }
@@ -68,12 +70,12 @@ if (!board) {
     // ホーム画面ウィジェット
     const head = widget.addText(`${me.name} の今日`);
     head.font = Font.boldSystemFont(13);
-    head.textColor = new Color(me.color || "#ffd166");
+    head.textColor = new Color(me.color || "#e6e6e6");
     widget.addSpacer(4);
     for (const line of lines) {
-      const t = widget.addText(line);
+      const t = widget.addText(line.text);
       t.font = Font.systemFont(14);
-      t.textColor = new Color("#e8ecf4");
+      t.textColor = new Color(line.shared ? shared.color : (me.color || "#e6e6e6"));
       t.lineLimit = 1;
       widget.addSpacer(2);
     }

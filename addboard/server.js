@@ -21,8 +21,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 function defaultBoard() {
   return {
     members: [
-      { id: 'm1', name: 'メンバー1', color: '#5b8def' },
-      { id: 'm2', name: 'メンバー2', color: '#e0708a' },
+      { id: 'm1', name: 'ASM', color: '#6ea3f5' },
+      { id: 'm2', name: 'TKS', color: '#62d68e' },
+      { id: 'both', name: 'ふたり', color: '#6fd3e1' }, // 二人共通の予定(テレビでは中央に表示)
     ],
     events: [], // { id, memberId, date: 'YYYY-MM-DD', time: 'HH:MM'|'', title }
     todos: [],  // { id, memberId, text, date: 'YYYY-MM-DD'|'', done }
@@ -35,6 +36,10 @@ try {
   board = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 } catch {
   board = defaultBoard();
+}
+// 旧データからの移行: 「ふたり」枠がなければ追加する
+if (!board.members.some((m) => m.id === 'both')) {
+  board.members.push({ id: 'both', name: 'ふたり', color: '#6fd3e1' });
 }
 
 function todayStr(offsetDays = 0) {
