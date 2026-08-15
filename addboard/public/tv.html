@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>addboard</title>
+<style>
+  :root {
+    --bg: #10141d;
+    --panel: #1a2130;
+    --line: #2a3346;
+    --text: #e8ecf4;
+    --dim: #8b95a8;
+    --accent: #ffd166;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 2.2vh 2vw;
+    gap: 1.8vh;
+    cursor: none;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  #date { font-size: 4.2vh; font-weight: 700; }
+  #date .youbi { color: var(--accent); margin-left: .4em; }
+  #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); }
+
+  #note-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 1.4vh;
+    padding: 1.6vh 1.6vw;
+    display: none;
+  }
+  #note-wrap.show { display: block; }
+  #note-label { font-size: 2vh; color: var(--accent); font-weight: 700; margin-bottom: .6vh; }
+  #note { font-size: 3.2vh; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 22vh; overflow: hidden; }
+
+  #cols { display: flex; gap: 1.6vw; flex: 1; min-height: 0; }
+  .member {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 1.4vh;
+    padding: 1.6vh 1.4vw;
+    display: flex;
+    flex-direction: column;
+    gap: 1vh;
+    overflow: hidden;
+    border-top: .7vh solid var(--mc, #5b8def);
+  }
+  .member h2 { font-size: 3vh; }
+  .member h2::before { content: "●"; color: var(--mc); margin-right: .4em; font-size: .8em; }
+  .sec-label { font-size: 1.9vh; color: var(--dim); font-weight: 700; letter-spacing: .1em; margin-top: .6vh; }
+  ul { list-style: none; overflow: hidden; }
+  li { font-size: 2.9vh; line-height: 1.55; display: flex; align-items: baseline; gap: .5em; }
+  li .time { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.2em; }
+  li .time.allday { color: var(--dim); font-size: .75em; }
+  li.todo::before { content: "☐"; color: var(--dim); }
+  li.todo.done::before { content: "☑"; color: #6fce8f; }
+  li.todo.done { color: var(--dim); text-decoration: line-through; }
+  .empty { color: var(--dim); font-size: 2.4vh; }
+
+  #week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: .8vw;
+    height: 24vh;
+  }
+  .day {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 1.2vh;
+    padding: 1vh .6vw;
+    overflow: hidden;
+  }
+  .day.today { border-color: var(--accent); }
+  .day .dhead { font-size: 1.9vh; font-weight: 700; color: var(--dim); margin-bottom: .5vh; }
+  .day.today .dhead { color: var(--accent); }
+  .day .dhead .sat { color: #7ab5f5; }
+  .day .dhead .sun { color: #f08a9b; }
+  .day li { font-size: 1.9vh; line-height: 1.5; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day li::before { content: "●"; color: var(--mc); font-size: .7em; margin-right: .3em; }
+  #offline { position: fixed; top: 1vh; right: 1vw; color: #f08a9b; font-size: 2vh; display: none; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="date"></div>
+    <div id="clock"></div>
+  </header>
+  <div id="note-wrap">
+    <div id="note-label">今日の朝会メモ</div>
+    <div id="note"></div>
+  </div>
+  <div id="cols"></div>
+  <div id="week"></div>
+  <div id="offline">接続が切れています…再接続中</div>
+
+<script>
+const YOUBI = ['日','月','火','水','木','金','土'];
+const pad = n => String(n).padStart(2, '0');
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+function tickClock() {
+  const now = new Date();
+  document.getElementById('date').innerHTML =
+    `${now.getMonth()+1}月${now.getDate()}日<span class="youbi">(${YOUBI[now.getDay()]})</span>`;
+  document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+let lastRenderedDay = dstr(new Date());
+setInterval(() => {
+  // 日付が変わったら自動で表示を今日基準に更新する
+  if (dstr(new Date()) !== lastRenderedDay) load();
+}, 30000);
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function render(b) {
+  const today = dstr(new Date());
+  lastRenderedDay = today;
+
+  // 朝会メモ
+  const noteWrap = document.getElementById('note-wrap');
+  if (b.note && b.note.text.trim()) {
+    noteWrap.classList.add('show');
+    document.getElementById('note').textContent = b.note.text;
+  } else {
+    noteWrap.classList.remove('show');
+  }
+
+  // 各メンバーの「今日」
+  const cols = document.getElementById('cols');
+  cols.innerHTML = b.members.map(mem => {
+    const evs = b.events.filter(e => e.memberId === mem.id && e.date === today);
+    const todos = b.todos.filter(t => t.memberId === mem.id && (!t.date || t.date <= today));
+    const evHtml = evs.length
+      ? evs.map(e => `<li>${e.time ? `<span class="time">${esc(e.time)}</span>` : '<span class="time allday">終日</span>'}<span>${esc(e.title)}</span></li>`).join('')
+      : '<li class="empty">予定なし</li>';
+    const tdHtml = todos.length
+      ? todos.map(t => `<li class="todo${t.done ? ' done' : ''}">${esc(t.text)}</li>`).join('')
+      : '<li class="empty">なし</li>';
+    return `<div class="member" style="--mc:${esc(mem.color)}">
+      <h2>${esc(mem.name)}</h2>
+      <div class="sec-label">今日の予定</div><ul>${evHtml}</ul>
+      <div class="sec-label">やること</div><ul>${tdHtml}</ul>
+    </div>`;
+  }).join('');
+
+  // 今後1週間
+  const week = document.getElementById('week');
+  const colorOf = id => (b.members.find(mm => mm.id === id) || {}).color || '#888';
+  week.innerHTML = [...Array(7)].map((_, i) => {
+    const d = new Date(Date.now() + i * 86400000);
+    const ds = dstr(d);
+    const w = d.getDay();
+    const wcls = w === 6 ? 'sat' : w === 0 ? 'sun' : '';
+    const evs = b.events.filter(e => e.date === ds);
+    return `<div class="day${i === 0 ? ' today' : ''}">
+      <div class="dhead">${i === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}`}<span class="${wcls}">(${YOUBI[w]})</span></div>
+      <ul>${evs.map(e => `<li style="--mc:${esc(colorOf(e.memberId))}">${e.time ? esc(e.time) + ' ' : ''}${esc(e.title)}</li>`).join('')}</ul>
+    </div>`;
+  }).join('');
+}
+
+async function load() {
+  const r = await fetch('/api/board');
+  render(await r.json());
+}
+
+function connect() {
+  const es = new EventSource('/api/stream');
+  es.onmessage = () => { load().catch(() => {}); document.getElementById('offline').style.display = 'none'; };
+  es.onerror = () => {
+    document.getElementById('offline').style.display = 'block';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+load().catch(() => {});
+connect();
+</script>
+</body>
+</html>

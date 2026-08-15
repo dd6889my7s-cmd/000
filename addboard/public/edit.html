@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>addboard 編集</title>
+<style>
+  :root {
+    --bg: #10141d;
+    --panel: #1a2130;
+    --line: #2a3346;
+    --text: #e8ecf4;
+    --dim: #8b95a8;
+    --accent: #ffd166;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    padding: max(14px, env(safe-area-inset-top)) 14px max(24px, env(safe-area-inset-bottom));
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 18px; margin-bottom: 12px; }
+  h1 .st { color: var(--dim); font-weight: normal; font-size: 13px; margin-left: 8px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  section > h2 { font-size: 14px; color: var(--accent); margin-bottom: 10px; }
+  textarea, input, select, button {
+    font: inherit;
+    color: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    padding: 10px;
+  }
+  textarea { width: 100%; min-height: 90px; resize: vertical; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; }
+  form input[type=text] { flex: 1 1 100%; }
+  form select { flex: 1; }
+  form input[type=date], form input[type=time] { flex: 1; }
+  button { background: #2b3a55; border: none; cursor: pointer; }
+  button.add { flex: 1 1 100%; background: #33518a; font-weight: 700; }
+  ul { list-style: none; margin-top: 6px; }
+  li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 2px; border-bottom: 1px solid var(--line);
+    font-size: 15px;
+  }
+  li:last-child { border-bottom: none; }
+  li .dot { font-size: 10px; }
+  li .when { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  li .txt { flex: 1; word-break: break-word; }
+  li.done .txt { color: var(--dim); text-decoration: line-through; }
+  li button { padding: 6px 10px; font-size: 13px; }
+  li button.del { background: #5a2733; }
+  .empty { color: var(--dim); font-size: 14px; padding: 6px 2px; }
+  .saved { color: #6fce8f; font-size: 12px; margin-top: 6px; min-height: 1em; }
+  details { margin-top: 4px; }
+  summary { color: var(--dim); font-size: 13px; cursor: pointer; margin-bottom: 8px; }
+  .mrow { display: flex; gap: 8px; margin-bottom: 8px; }
+  .mrow input[type=text] { flex: 1; }
+  .mrow input[type=color] { width: 44px; height: 44px; padding: 4px; }
+</style>
+</head>
+<body>
+  <h1>addboard 編集<span class="st" id="status"></span></h1>
+
+  <section>
+    <h2>今日の朝会メモ</h2>
+    <textarea id="note" placeholder="朝食のときに話したことをここにメモすると、テレビに大きく映ります"></textarea>
+    <div class="saved" id="note-saved"></div>
+  </section>
+
+  <section>
+    <h2>予定を追加</h2>
+    <form id="ev-form">
+      <input type="text" id="ev-title" placeholder="予定の内容(例: 歯医者)" required>
+      <select id="ev-member"></select>
+      <input type="date" id="ev-date" required>
+      <input type="time" id="ev-time">
+      <button class="add">予定を追加</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>やることを追加</h2>
+    <form id="td-form">
+      <input type="text" id="td-text" placeholder="やること(例: ゴミ出し)" required>
+      <select id="td-member"></select>
+      <input type="date" id="td-date" title="いつから表示するか(空欄なら今日から)">
+      <button class="add">やることを追加</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>やること一覧</h2>
+    <ul id="td-list"></ul>
+  </section>
+
+  <section>
+    <h2>これからの予定</h2>
+    <ul id="ev-list"></ul>
+  </section>
+
+  <section>
+    <details>
+      <summary>名前と色の設定</summary>
+      <div id="members"></div>
+    </details>
+  </section>
+
+<script>
+const YOUBI = ['日','月','火','水','木','金','土'];
+const pad = n => String(n).padStart(2, '0');
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+let board = null;
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function api(method, url, body) {
+  const r = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function fmtDate(ds) {
+  const today = dstr(new Date());
+  if (ds === today) return '今日';
+  if (ds === dstr(new Date(Date.now() + 86400000))) return '明日';
+  const d = new Date(ds + 'T00:00');
+  return `${d.getMonth()+1}/${d.getDate()}(${YOUBI[d.getDay()]})`;
+}
+
+function render() {
+  const b = board;
+  const memName = id => (b.members.find(m => m.id === id) || {}).name || '?';
+  const memColor = id => (b.members.find(m => m.id === id) || {}).color || '#888';
+
+  // メンバー選択肢
+  for (const sel of [document.getElementById('ev-member'), document.getElementById('td-member')]) {
+    const cur = sel.value;
+    sel.innerHTML = b.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+  }
+
+  // メモ(編集中は上書きしない)
+  const note = document.getElementById('note');
+  if (document.activeElement !== note) note.value = b.note.text || '';
+
+  // やること
+  const tdList = document.getElementById('td-list');
+  tdList.innerHTML = b.todos.length ? b.todos.map(t => `
+    <li class="${t.done ? 'done' : ''}">
+      <span class="dot" style="color:${esc(memColor(t.memberId))}">●</span>
+      <span class="txt">${esc(t.text)}<small style="color:var(--dim)"> — ${esc(memName(t.memberId))}${t.date ? ' ' + fmtDate(t.date) + 'から' : ''}</small></span>
+      <button onclick="toggleTodo('${t.id}')">${t.done ? '戻す' : '完了'}</button>
+      <button class="del" onclick="delTodo('${t.id}')">削除</button>
+    </li>`).join('') : '<li class="empty">やることはありません</li>';
+
+  // 予定(今日以降)
+  const today = dstr(new Date());
+  const evs = b.events.filter(e => e.date >= today);
+  const evList = document.getElementById('ev-list');
+  evList.innerHTML = evs.length ? evs.map(e => `
+    <li>
+      <span class="dot" style="color:${esc(memColor(e.memberId))}">●</span>
+      <span class="when">${fmtDate(e.date)}${e.time ? ' ' + esc(e.time) : ''}</span>
+      <span class="txt">${esc(e.title)}<small style="color:var(--dim)"> — ${esc(memName(e.memberId))}</small></span>
+      <button class="del" onclick="delEvent('${e.id}')">削除</button>
+    </li>`).join('') : '<li class="empty">予定はありません</li>';
+
+  // メンバー設定
+  document.getElementById('members').innerHTML = b.members.map(m => `
+    <div class="mrow">
+      <input type="text" value="${esc(m.name)}" onchange="renameMember('${m.id}', this.value)">
+      <input type="color" value="${esc(m.color)}" onchange="recolorMember('${m.id}', this.value)">
+    </div>`).join('');
+}
+
+async function load() {
+  board = await api('GET', '/api/board');
+  render();
+}
+
+// --- 操作 ---
+window.toggleTodo = async id => { await api('POST', `/api/todos/${id}/toggle`); };
+window.delTodo = async id => { await api('DELETE', `/api/todos/${id}`); };
+window.delEvent = async id => { await api('DELETE', `/api/events/${id}`); };
+window.renameMember = async (id, name) => { await api('PUT', `/api/members/${id}`, { name }); };
+window.recolorMember = async (id, color) => { await api('PUT', `/api/members/${id}`, { color }); };
+
+document.getElementById('ev-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  await api('POST', '/api/events', {
+    title: document.getElementById('ev-title').value.trim(),
+    memberId: document.getElementById('ev-member').value,
+    date: document.getElementById('ev-date').value,
+    time: document.getElementById('ev-time').value,
+  });
+  document.getElementById('ev-title').value = '';
+  document.getElementById('ev-time').value = '';
+});
+
+document.getElementById('td-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  await api('POST', '/api/todos', {
+    text: document.getElementById('td-text').value.trim(),
+    memberId: document.getElementById('td-member').value,
+    date: document.getElementById('td-date').value,
+  });
+  document.getElementById('td-text').value = '';
+});
+
+// メモは打ち終わったら自動保存
+let noteTimer = null;
+document.getElementById('note').addEventListener('input', () => {
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(async () => {
+    await api('PUT', '/api/note', { text: document.getElementById('note').value });
+    const s = document.getElementById('note-saved');
+    s.textContent = '保存しました(テレビに反映されます)';
+    setTimeout(() => { s.textContent = ''; }, 2000);
+  }, 600);
+});
+
+// 日付欄の初期値は今日
+document.getElementById('ev-date').value = dstr(new Date());
+
+// 他の端末の変更をリアルタイムに反映
+function connect() {
+  const es = new EventSource('/api/stream');
+  es.onmessage = () => { load().catch(() => {}); document.getElementById('status').textContent = ''; };
+  es.onerror = () => {
+    document.getElementById('status').textContent = '再接続中…';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+load().catch(() => {});
+connect();
+</script>
+</body>
+</html>
