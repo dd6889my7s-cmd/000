@@ -34,10 +34,10 @@
   }
   #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); white-space: nowrap; }
 
-  /* 朝会メモ(ヘッダー中央・背景なし) */
+  /* 朝会メモ(ヘッダー左・背景なし) */
   #note {
     flex: 1;
-    text-align: center;
+    text-align: left;
     font-size: 2.8vh;
     line-height: 1.4;
     white-space: pre-wrap;
@@ -88,6 +88,7 @@
     grid-template-columns: repeat(7, 1fr);
     gap: .8vw;
     height: 16vh;
+    margin-top: 4.5vh; /* 週間カレンダーの上に1行ぶんの余白 */
   }
   .day {
     background: var(--panel);
