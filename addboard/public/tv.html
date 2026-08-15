@@ -27,47 +27,52 @@
   }
   header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
+    gap: 2vw;
   }
-  #date { font-size: 4.2vh; font-weight: 700; }
+  #date { font-size: 4.2vh; font-weight: 700; white-space: nowrap; }
   #date .youbi { color: var(--dim); margin-left: .4em; }
-  #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); }
+  #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); white-space: nowrap; }
 
-  #note-wrap {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 1.4vh;
-    padding: 1.6vh 1.6vw;
-    display: none;
+  /* 朝会メモ(ヘッダー中央・背景なし) */
+  #note {
+    flex: 1;
+    text-align: center;
+    font-size: 2.8vh;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 8vh;
+    overflow: hidden;
   }
-  #note-wrap.show { display: block; }
-  #note { font-size: 3.2vh; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 20vh; overflow: hidden; }
 
-  /* 二人共通の予定(左右をまたいで中央に表示) */
-  #shared {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 1.4vh;
-    padding: 1.2vh 1.6vw;
-    display: none;
-  }
-  #shared.show { display: block; }
-  #shared ul { display: flex; flex-direction: column; align-items: center; }
-
-  #cols { display: flex; gap: 1.4vw; flex: 1; min-height: 0; }
+  #cols { display: flex; gap: 1.4vw; flex: 1; min-height: 0; position: relative; }
   .member {
     flex: 1;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 1.4vh;
     padding: 1.6vh 1.4vw;
     display: flex;
     flex-direction: column;
     gap: 1.2vh;
     overflow: hidden;
   }
-  .member h2 { font-size: 3vh; color: var(--mc); }
+  .member h2 {
+    font-size: 2.3vh;
+    font-weight: normal;
+    text-align: center;
+    color: var(--mc);
+  }
+
+  /* 二人共通の予定(左右の列の下部に重ねて中央表示・背景なし) */
+  #shared {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1vh;
+    display: none;
+  }
+  #shared.show { display: block; }
+  #shared ul { display: flex; flex-direction: column; align-items: center; }
   .member .todos { border-top: 1px solid var(--line); padding-top: 1.2vh; }
   ul { list-style: none; overflow: hidden; }
   li { font-size: 2.9vh; line-height: 1.55; display: flex; align-items: baseline; gap: .5em; color: var(--mc); }
@@ -95,19 +100,16 @@
   .day.today { border-color: var(--text); }
   .day .dhead { font-size: 1.9vh; font-weight: 700; color: var(--dim); margin-bottom: .5vh; }
   .day.today .dhead { color: var(--text); }
-  .day li { font-size: 1.9vh; line-height: 1.5; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day li { font-size: 1.9vh; line-height: 1.5; display: block; word-break: break-word; margin-bottom: .3vh; }
   #offline { position: fixed; top: 1vh; right: 1vw; color: var(--dim); font-size: 2vh; display: none; }
 </style>
 </head>
 <body>
   <header>
     <div id="date"></div>
+    <div id="note"></div>
     <div id="clock"></div>
   </header>
-  <div id="note-wrap">
-    <div id="note"></div>
-  </div>
-  <div id="shared"></div>
   <div id="cols"></div>
   <div id="week"></div>
   <div id="offline">接続が切れています…再接続中</div>
@@ -150,29 +152,12 @@ function render(b) {
   lastRenderedDay = today;
   const colorOf = id => (b.members.find(m => m.id === id) || {}).color || '#e6e6e6';
 
-  // 朝会メモ
-  const noteWrap = document.getElementById('note-wrap');
-  if (b.note && b.note.text.trim()) {
-    noteWrap.classList.add('show');
-    document.getElementById('note').textContent = b.note.text;
-  } else {
-    noteWrap.classList.remove('show');
-  }
-
-  // 二人共通(中央・水色)
-  const shared = document.getElementById('shared');
-  const shEvs = b.events.filter(e => e.memberId === 'both' && e.date === today);
-  const shTds = b.todos.filter(t => t.memberId === 'both' && (!t.date || t.date <= today));
-  if (shEvs.length || shTds.length) {
-    shared.classList.add('show');
-    shared.innerHTML = `<ul style="--mc:${esc(colorOf('both'))}">${shEvs.map(evLi).join('')}${shTds.map(tdLi).join('')}</ul>`;
-  } else {
-    shared.classList.remove('show');
-  }
+  // 朝会メモ(ヘッダー中央)
+  document.getElementById('note').textContent = (b.note && b.note.text) || '';
 
   // 各自の「今日」(左右の列・本人の色)
   const cols = document.getElementById('cols');
-  cols.innerHTML = b.members.filter(m => m.id !== 'both').map(mem => {
+  const memberHtml = b.members.filter(m => m.id !== 'both').map(mem => {
     const evs = b.events.filter(e => e.memberId === mem.id && e.date === today);
     const todos = b.todos.filter(t => t.memberId === mem.id && (!t.date || t.date <= today));
     const evHtml = evs.length ? evs.map(evLi).join('') : '<li class="empty">予定なし</li>';
@@ -182,6 +167,15 @@ function render(b) {
       <ul>${evHtml}</ul>${tdHtml}
     </div>`;
   }).join('');
+
+  // 二人共通(左右の列の下部に重ねて中央・水色)
+  const shEvs = b.events.filter(e => e.memberId === 'both' && e.date === today);
+  const shTds = b.todos.filter(t => t.memberId === 'both' && (!t.date || t.date <= today));
+  const sharedHtml = (shEvs.length || shTds.length)
+    ? `<div id="shared" class="show"><ul style="--mc:${esc(colorOf('both'))}">${shEvs.map(evLi).join('')}${shTds.map(tdLi).join('')}</ul></div>`
+    : '';
+
+  cols.innerHTML = memberHtml + sharedHtml;
 
   // 今後1週間(文字色で誰の予定か区別)
   const week = document.getElementById('week');
