@@ -77,11 +77,8 @@
   li { font-size: 5.8vh; line-height: 1.5; display: flex; align-items: baseline; gap: .5em; color: var(--mc); }
   li .time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.2em; }
   li .time.allday { opacity: .55; font-size: .75em; }
-  li.todo::before { content: "☐"; opacity: .7; }
-  li.todo.done::before { content: "☑"; }
   li.todo.done { opacity: .45; text-decoration: line-through; }
   li.empty { color: var(--dim); font-size: 3vh; }
-  li.empty::before { content: none; }
 
   #week {
     display: grid;

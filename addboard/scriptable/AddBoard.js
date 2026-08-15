@@ -56,7 +56,7 @@ if (!board) {
 
   const lines = [];
   for (const e of events) lines.push({ text: `${e.time ? e.time + " " : ""}${e.title}`, shared: e.memberId === "both" });
-  for (const t of todos) lines.push({ text: `☐ ${t.text}`, shared: t.memberId === "both" });
+  for (const t of todos) lines.push({ text: t.text, shared: t.memberId === "both" });
   if (!lines.length) lines.push({ text: "今日は予定なし 🎉", shared: false });
 
   if (isLock) {
