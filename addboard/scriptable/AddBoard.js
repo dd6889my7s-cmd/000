@@ -13,8 +13,9 @@
 //       自宅の Wi-Fi にいる時だけ取得できます。外出先でも見たい場合は
 //       Tailscale などの VPN を入れると SERVER のアドレスのまま届きます。
 
-const SERVER = "http://192.168.1.20:8720"; // ← 自宅サーバーのアドレスに変更
+const SERVER = "http://192.168.1.20:8720"; // ← サーバーのアドレスに変更(AWSなら https://○○○.duckdns.org)
 const MY_NAME = "ASM";                     // ← 自分のメンバー名に変更(ASM / TKS)
+const KEY = "";                            // ← アクセスキー(BOARD_KEY)。AWS公開時のみ設定
 
 function todayStr() {
   const d = new Date();
@@ -25,6 +26,7 @@ function todayStr() {
 let board = null;
 try {
   const req = new Request(`${SERVER}/api/board`);
+  if (KEY) req.headers = { "X-Board-Key": KEY };
   req.timeoutInterval = 10;
   board = await req.loadJSON();
 } catch (e) {

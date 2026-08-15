@@ -14,6 +14,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT || 8720);
+// アクセスキー。設定すると全ページ・APIでキーが必要になる(AWSなど外部公開時に必ず設定する)。
+// 未設定なら認証なし(家庭内LANのみでの利用向け)。
+const BOARD_KEY = process.env.BOARD_KEY || '';
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'board.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -122,12 +125,30 @@ function serveFile(res, name) {
   });
 }
 
+function authed(req, url) {
+  if (!BOARD_KEY) return true;
+  if (url.searchParams.get('key') === BOARD_KEY) return true;
+  if (req.headers['x-board-key'] === BOARD_KEY) return true;
+  const cookies = String(req.headers.cookie || '');
+  return cookies.split(/;\s*/).includes(`boardkey=${BOARD_KEY}`);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const p = url.pathname;
   const m = req.method;
 
   try {
+    if (!authed(req, url)) {
+      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('アクセスキーが必要です。/tv?key=****** のようにキー付きのURLで開いてください。');
+      return;
+    }
+    // キー付きURLで開いたら以後はクッキーで通す(1年間)
+    if (BOARD_KEY && url.searchParams.get('key') === BOARD_KEY) {
+      res.setHeader('Set-Cookie', `boardkey=${BOARD_KEY}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
+    }
+
     // 画面
     if (m === 'GET' && (p === '/' || p === '/tv')) return serveFile(res, 'tv.html');
     if (m === 'GET' && p === '/edit') return serveFile(res, 'edit.html');
