@@ -30,9 +30,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 2vw;
+    margin-bottom: 4.5vh; /* ヘッダー下に1行ぶんの余白 */
   }
-  #date { font-size: 4.2vh; font-weight: 700; white-space: nowrap; }
-  #date .youbi { color: var(--dim); margin-left: .4em; }
   #clock { font-size: 4.6vh; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--dim); white-space: nowrap; }
 
   /* 朝会メモ(ヘッダー中央・背景なし) */
@@ -75,20 +74,20 @@
   #shared ul { display: flex; flex-direction: column; align-items: center; }
   .member .todos { border-top: 1px solid var(--line); padding-top: 1.2vh; }
   ul { list-style: none; overflow: hidden; }
-  li { font-size: 2.9vh; line-height: 1.55; display: flex; align-items: baseline; gap: .5em; color: var(--mc); }
+  li { font-size: 5.8vh; line-height: 1.5; display: flex; align-items: baseline; gap: .5em; color: var(--mc); }
   li .time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.2em; }
   li .time.allday { opacity: .55; font-size: .75em; }
   li.todo::before { content: "☐"; opacity: .7; }
   li.todo.done::before { content: "☑"; }
   li.todo.done { opacity: .45; text-decoration: line-through; }
-  li.empty { color: var(--dim); font-size: 2.4vh; }
+  li.empty { color: var(--dim); font-size: 3vh; }
   li.empty::before { content: none; }
 
   #week {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: .8vw;
-    height: 24vh;
+    height: 16vh;
   }
   .day {
     background: var(--panel);
@@ -106,7 +105,6 @@
 </head>
 <body>
   <header>
-    <div id="date"></div>
     <div id="note"></div>
     <div id="clock"></div>
   </header>
@@ -121,8 +119,6 @@ const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}
 
 function tickClock() {
   const now = new Date();
-  document.getElementById('date').innerHTML =
-    `${now.getMonth()+1}月${now.getDate()}日<span class="youbi">(${YOUBI[now.getDay()]})</span>`;
   document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 setInterval(tickClock, 1000);
